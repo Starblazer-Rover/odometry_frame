@@ -22,7 +22,9 @@ class OdometryFramePublisher(Node):
         transform.header = msg.header
         transform.child_frame_id = msg.child_frame_id
 
-        transform.transform.translation = msg.pose.pose.position
+        transform.transform.translation.x = msg.pose.pose.position.x
+        transform.transform.translation.y = msg.pose.pose.position.y
+        transform.transform.translation.z = msg.pose.pose.position.z
         transform.transform.rotation = msg.pose.pose.orientation
 
         self.__odom_broadcaster.sendTransform(transform)

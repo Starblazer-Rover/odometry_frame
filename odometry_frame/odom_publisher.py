@@ -112,6 +112,32 @@ class OdometryPublisher(Node):
 
         self.twist.angular = msg.angular_velocity
 
+    def __accel_to_zero(self, msg):
+        msg.linear_acceleration.x = 0.0
+        msg.linear_acceleration.y = 0.0
+        msg.linear_acceleration.z = 0.0
+        msg.angular_velocity.x = 0.0
+        msg.angular_velocity.y = 0.0
+        msg.angular_velocity.z = 0.0
+
+        return msg
+
+    def __vector_comparison(self, vector):
+        return (vector.x == 0 and vector.y == 0 and vector.z == 0)
+        
+
+    def __bias_odom(self, msg):
+        if self.__vector_comparison(msg.linear_acceleration) and self.__vector_comparison(msg.angular_velocity):
+            self.__initialize_twist()
+            msg = self.__accel_to_zero(msg)
+            return msg
+            
+            
+        else:
+            self.get_logger().info(f"{msg.linear_acceleration.x}, {msg.linear_acceleration.y}, {msg.linear_acceleration.z}")
+            return msg
+            
+
     def __create_odom(self):
         """Creates the odometry message using all the previously calculated data
 
@@ -137,6 +163,8 @@ class OdometryPublisher(Node):
             return
 
         self.duration = self.__calculate_duration(msg)
+
+        msg = self.__bias_odom(msg)
 
         self.__calculate_pose(msg)
 
