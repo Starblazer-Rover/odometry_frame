@@ -80,11 +80,16 @@ class OdometryPublisher(Node):
         """
 
         # pose = vt + 1/2at
-        self.pose.position.x += (self.twist.linear.x * self.duration) + (0.5 * msg.linear_acceleration.x * self.duration**2)
-        self.pose.position.y += (self.twist.linear.y * self.duration) + (0.5 * msg.linear_acceleration.y * self.duration**2)
-        self.pose.position.z += (self.twist.linear.z * self.duration) + (0.5 * msg.linear_acceleration.z * self.duration**2) 
+        self.pose.position.x += (self.twist.linear.x * self.duration) + (0.5 * msg.linear_acceleration.x * (self.duration**2))
+        self.pose.position.y += (self.twist.linear.y * self.duration) + (0.5 * msg.linear_acceleration.y * (self.duration**2))
+        self.pose.position.z += (self.twist.linear.z * self.duration) + (0.5 * msg.linear_acceleration.z * (self.duration**2)) 
 
-        self.pose.orientation = msg.orientation
+        #self.pose.orientation = msg.orientation
+
+        self.pose.orientation.x = 0.0
+        self.pose.orientation.y = 0.0
+        self.pose.orientation.z = 0.0
+        self.pose.orientation.w = 1.0
 
     def __initialize_twist(self):
         """
@@ -127,14 +132,15 @@ class OdometryPublisher(Node):
         
 
     def __bias_odom(self, msg):
-        if self.__vector_comparison(msg.linear_acceleration) and self.__vector_comparison(msg.angular_velocity):
+        #if self.__vector_comparison(msg.linear_acceleration) and self.__vector_comparison(msg.angular_velocity):
+        if False:
             self.__initialize_twist()
             msg = self.__accel_to_zero(msg)
             return msg
             
             
         else:
-            self.get_logger().info(f"{msg.linear_acceleration.x}, {msg.linear_acceleration.y}, {msg.linear_acceleration.z}")
+            self.get_logger().info(f"{self.twist.linear.x}, {self.twist.linear.y}, {self.twist.linear.x}, {self.duration}")
             return msg
             
 
