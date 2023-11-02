@@ -84,12 +84,7 @@ class OdometryPublisher(Node):
         self.pose.position.y += (self.twist.linear.y * self.duration) + (0.5 * msg.linear_acceleration.y * (self.duration**2))
         self.pose.position.z += (self.twist.linear.z * self.duration) + (0.5 * msg.linear_acceleration.z * (self.duration**2)) 
 
-        #self.pose.orientation = msg.orientation
-
-        self.pose.orientation.x = 0.0
-        self.pose.orientation.y = 0.0
-        self.pose.orientation.z = 0.0
-        self.pose.orientation.w = 1.0
+        self.pose.orientation = msg.orientation
 
     def __initialize_twist(self):
         """
