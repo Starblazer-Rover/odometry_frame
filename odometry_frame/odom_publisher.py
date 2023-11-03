@@ -127,8 +127,7 @@ class OdometryPublisher(Node):
         
 
     def __bias_odom(self, msg):
-        #if self.__vector_comparison(msg.linear_acceleration) and self.__vector_comparison(msg.angular_velocity):
-        if False:
+        if self.__vector_comparison(msg.linear_acceleration) and self.__vector_comparison(msg.angular_velocity):
             self.__initialize_twist()
             msg = self.__accel_to_zero(msg)
             return msg
