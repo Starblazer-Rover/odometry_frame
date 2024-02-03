@@ -5,7 +5,7 @@ import numpy as np
 
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import Imu
-from geometry_msgs.msg import Pose, Twist
+from geometry_msgs.msg import Pose, Quaternion
 from std_msgs.msg import Header
 
 
@@ -14,15 +14,38 @@ class OdometryPublisher(Node):
     def __init__(self):
         super().__init__('odometry_publisher')
 
-        self.default_covariance = np.zeros(36)
-
-        # Set the first imu to None so the subscriber knows if its the first msg of imu
-        self.first_imu = None
-
-        self.__imu_subscriber = self.create_subscription(Imu, '/odom/Imu', self.listener_callback, 1)
-        self.__imu_subscriber
+        self.__encoder_subscriber = self.create_subscription(Imu, '/odom/Encoder', self.listener_callback, 1)
+        self.__encoder_subscriber
 
         self.__odometry_publisher = self.create_publisher(Odometry, '/odom/Odometry', 1)
+
+        self.odom = Odometry()
+        self.odom.header = self.__create_header('odom')
+        self.odom.child_frame_id = "base_link"
+        self.__initialize_orientation()
+        self.__initialize_pose()
+
+        self.yaw = 0
+
+
+    def __initialize_orientation(self):
+        orientation = Quaternion()
+
+        orientation.w = 1
+        orientation.x = 0
+        orientation.y = 0
+        orientation.z = 0
+
+        self.odom.pose.pose.orientation = orientation
+
+    def __initialize_pose(self):
+        pose = Pose()
+
+        pose.x = 0
+        pose.y = 0
+        pose.z = 0
+
+        self.odom.pose.pose.position = pose
 
     def __create_header(self, frame_id):
         """Creates a header object for the message
@@ -47,134 +70,67 @@ class OdometryPublisher(Node):
 
         return header
     
-    def __calculate_duration(self, msg):
-        """Takes the first time from imu and subtracts it from the second time
+    def __calculate_difference(self, left, right):
+        ENCODER_ERROR = 0.5
+        WHEEL_DISTANCE = 16 #inches
 
-        Args:
-            msg (Imu Message): Input from /camera/Imu
+        difference = left - right
 
-        Returns:
-            _type_: Returns the difference of the two times
-        """
-        duration_sec = msg.header.stamp.sec - self.first_imu.header.stamp.sec
-        duration_nanosec = msg.header.stamp.nanosec - self.first_imu.header.stamp.nanosec
+        if abs(difference) < ENCODER_ERROR * 2:
+            deltax = ((left + right) / 2) * np.cos(self.yaw)
+            deltay = ((left + right) / 2) * np.sin(self.yaw)
+            deltatheta = 0
 
-        duration = duration_sec + (duration_nanosec / 1000000000)
+        elif difference > 0:
+            radius = WHEEL_DISTANCE / ((left / right) - 1) #inches
+            theta = right / radius #radians
 
-        return duration
-    
-    def __initialize_pose(self):
-        """
-        Sets all the Pose values to 0 because the calculations use previous values and they cannot be None
-        """
-        self.pose = Pose()
-        self.pose.position.x = 0.0
-        self.pose.position.y = 0.0
-        self.pose.position.z = 0.0
-    
-    def __calculate_pose(self, msg):
-        """Calculates pose from previously known velocity and acceleration using kinematics
+            omega = self.yaw + (np.pi / 2)
 
-        Args:
-            msg (Imu msg): Input from /camera/Imu
-        """
+            x = (radius + (WHEEL_DISTANCE / 2)) * np.cos(omega)
+            y = (radius + (WHEEL_DISTANCE / 2)) * np.sin(omega)
 
-        # pose = vt + 1/2at
-        self.pose.position.x += (self.twist.linear.x * self.duration) + (0.5 * msg.linear_acceleration.x * (self.duration**2))
-        self.pose.position.y += (self.twist.linear.y * self.duration) + (0.5 * msg.linear_acceleration.y * (self.duration**2))
-        self.pose.position.z += (self.twist.linear.z * self.duration) + (0.5 * msg.linear_acceleration.z * (self.duration**2)) 
+            xprime = (x * np.cos(theta * -1)) - (y * np.sin(theta * -1))
+            yprime = (y * np.cos(theta * -1)) + (x * np.sin(theta * -1))
 
-        self.pose.orientation = msg.orientation
+            deltax = xprime - x
+            deltay = yprime - y
+            deltatheta = theta * -1
 
-    def __initialize_twist(self):
-        """
-        Initializes twist values as 0 because when accessing them for the first time, they cannot be None
-        """
-        self.twist = Twist()
-        self.twist.linear.x = 0.0
-        self.twist.linear.y = 0.0
-        self.twist.linear.z = 0.0
-        self.twist.angular.x = 0.0
-        self.twist.angular.y = 0.0
-        self.twist.angular.z = 0.0
-
-    def __calculate_twist(self, msg):
-        """Calculates twist from inputted acceleration of msg
-
-        Args:
-            msg (Imu Message): Input from /camera/Imu
-        """
-
-        # velocity = at
-        self.twist.linear.x += msg.linear_acceleration.x * self.duration
-        self.twist.linear.y += msg.linear_acceleration.y * self.duration
-        self.twist.linear.z += msg.linear_acceleration.z * self.duration
-
-        self.twist.angular = msg.angular_velocity
-
-    def __accel_to_zero(self, msg):
-        msg.linear_acceleration.x = 0.0
-        msg.linear_acceleration.y = 0.0
-        msg.linear_acceleration.z = 0.0
-        msg.angular_velocity.x = 0.0
-        msg.angular_velocity.y = 0.0
-        msg.angular_velocity.z = 0.0
-
-        return msg
-
-    def __vector_comparison(self, vector):
-        return (vector.x == 0 and vector.y == 0 and vector.z == 0)
-        
-
-    def __bias_odom(self, msg):
-        if self.__vector_comparison(msg.linear_acceleration) and self.__vector_comparison(msg.angular_velocity):
-            self.__initialize_twist()
-            msg = self.__accel_to_zero(msg)
-            return msg
-            
-            
         else:
-            self.get_logger().info(f"{self.twist.linear.x}, {self.twist.linear.y}, {self.twist.linear.x}, {self.duration}")
-            return msg
-            
+            radius = WHEEL_DISTANCE / ((right / left) - 1)
+            theta = left / radius
 
-    def __create_odom(self):
-        """Creates the odometry message using all the previously calculated data
+            omega = self.yaw - (np.pi / 2)
 
-        Returns:
-            Odom Message: Keeps track of all position values for the rover
-        """
-        odom = Odometry()
+            x = (radius + (WHEEL_DISTANCE / 2)) * np.cos(omega)
+            y = (radius + (WHEEL_DISTANCE / 2)) * np.sin(omega)
 
-        odom.pose.pose = self.pose
-        odom.pose.covariance = self.default_covariance
-        odom.twist.twist = self.twist
-        odom.twist.covariance = self.default_covariance
-        odom.child_frame_id = 'base_link'
-        odom.header = self.__create_header('odom')
+            xprime = (x * np.cos(theta)) - (y * np.sin(theta))
+            yprime = (y * np.cos(theta)) + (x * np.sin(theta))
 
-        return odom
+            deltax = xprime - x
+            deltay = yprime - y
+            deltatheta = theta
+
+        return deltax, deltay, deltatheta
+    
+    def __update_orientation(self):
+        self.odom.pose.pose.orientation.z = np.sin(self.yaw / 2)
+        self.odom.pose.pose.orientation.w = np.cos(self.yaw / 2)
 
     def listener_callback(self, msg):
-        if self.first_imu == None:
-            self.first_imu = msg
-            self.__initialize_pose()
-            self.__initialize_twist()
-            return
 
-        self.duration = self.__calculate_duration(msg)
+        left = msg.data[0]
+        right = msg.data[1]
 
-        msg = self.__bias_odom(msg)
+        deltax, deltay, deltatheta = self.__calculate_difference(left, right)
 
-        self.__calculate_pose(msg)
+        self.odom.pose.pose.position.x += deltax
+        self.odom.pose.pose.position.y += deltay
+        self.yaw += deltatheta
 
-        self.__calculate_twist(msg)
-
-        odom = self.__create_odom()
-
-        self.first_imu = msg
-
-        self.__odometry_publisher.publish(odom)
+        self.__update_orientation()
 
 
 def main(args=None):
