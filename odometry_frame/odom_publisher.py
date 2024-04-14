@@ -70,50 +70,29 @@ class OdometryPublisher(Node):
 
         return header
     
-    def __calculate_difference(self, left, right):
+    def __calculate_difference(self, d_left, d_right):
         ENCODER_ERROR = 0.5
         WHEEL_DISTANCE = 16 #inches
 
-        difference = left - right
+        difference = d_left - d_right
 
         if abs(difference) < ENCODER_ERROR * 2:
-            deltax = ((left + right) / 2) * np.cos(self.yaw)
-            deltay = ((left + right) / 2) * np.sin(self.yaw)
-            deltatheta = 0
-
-        elif difference > 0:
-            radius = WHEEL_DISTANCE / ((left / right) - 1) #inches
-            theta = right / radius #radians
-
-            omega = self.yaw + (np.pi / 2)
-
-            x = (radius + (WHEEL_DISTANCE / 2)) * np.cos(omega)
-            y = (radius + (WHEEL_DISTANCE / 2)) * np.sin(omega)
-
-            xprime = (x * np.cos(theta * -1)) - (y * np.sin(theta * -1))
-            yprime = (y * np.cos(theta * -1)) + (x * np.sin(theta * -1))
-
-            deltax = xprime - x
-            deltay = yprime - y
-            deltatheta = theta * -1
+            delta_x = ((d_left + d_right) / 2) * np.cos(self.yaw)
+            delta_y = ((d_left + d_right) / 2) * np.sin(self.yaw)
+            delta_theta = 0
 
         else:
-            radius = WHEEL_DISTANCE / ((right / left) - 1)
-            theta = left / radius
+            delta_theta = (d_right - d_left) / WHEEL_DISTANCE
 
-            omega = self.yaw - (np.pi / 2)
+            r_right = d_right / delta_theta
+            r_left = d_left / delta_theta
 
-            x = (radius + (WHEEL_DISTANCE / 2)) * np.cos(omega)
-            y = (radius + (WHEEL_DISTANCE / 2)) * np.sin(omega)
+            r_center = (r_right + r_left) / 2
 
-            xprime = (x * np.cos(theta)) - (y * np.sin(theta))
-            yprime = (y * np.cos(theta)) + (x * np.sin(theta))
+            delta_x = r_center * (np.cos(delta_theta) - 1)
+            delta_y = r_center * (np.sin(delta_theta) - 1)
 
-            deltax = xprime - x
-            deltay = yprime - y
-            deltatheta = theta
-
-        return deltax, deltay, deltatheta
+        return delta_x, delta_y, delta_theta
     
     def __update_orientation(self):
         self.odom.pose.pose.orientation.z = np.sin(self.yaw / 2)
