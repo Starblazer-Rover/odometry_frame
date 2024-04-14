@@ -89,8 +89,8 @@ class OdometryPublisher(Node):
 
             r_center = (r_right + r_left) / 2
 
-            delta_x = r_center * (np.cos(delta_theta) - 1)
-            delta_y = r_center * (np.sin(delta_theta) - 1)
+            delta_x = r_center * (np.cos(delta_theta + self.yaw - np.pi/2) - np.cos(self.yaw - np.pi/2))
+            delta_y = r_center * (np.sin(delta_theta + self.yaw - np.pi/2) - np.sin(self.yaw - np.pi/2))
 
         return delta_x, delta_y, delta_theta
     
