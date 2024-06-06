@@ -13,7 +13,7 @@ class OdometryFramePublisher(Node):
 
         self.__odom_broadcaster = TransformBroadcaster(self)
 
-        self.__odom_subscriber = self.create_subscription(Odometry, '/odom/Odometry', self.listener_callback, 1)
+        self.__odom_subscriber = self.create_subscription(Odometry, '/odom', self.listener_callback, 1)
         self.__odom_subscriber
 
     def listener_callback(self, msg):
@@ -37,9 +37,8 @@ def main():
     try:
         rclpy.spin(odometry_frame_publisher)
     except KeyboardInterrupt:
+        odometry_frame_publisher.destroy_node()
         pass
-
-    rclpy.shutdown()
 
 
 if __name__ == '__main__':

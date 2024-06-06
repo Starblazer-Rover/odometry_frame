@@ -21,7 +21,8 @@ setup(
     entry_points={
         'console_scripts': [
             'odom = odometry_frame.odom_publisher:main',
-            'transform = odometry_frame.odom_transform:main'
+            'transform = odometry_frame.odom_transform:main',
+            'target = odometry_frame.target_point:main'
         ],
     },
 )
