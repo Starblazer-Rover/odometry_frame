@@ -64,12 +64,12 @@ ros2 run odometry_frame target
 
 #### Subscribed Topics:
 
-/odom
+/odom  
 /odom/gps
 
 #### Subscribed Messages:
 
-nav_msgs/Odometry
+nav_msgs/Odometry  
 std_msgs/Float32MultiArray
 
 #### Published Topics:
